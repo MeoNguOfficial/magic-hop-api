@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "-p dist && touch dist/index.html",
+        "build": "vite build",
         "dev": "vite"
     },
     "devDependencies": {

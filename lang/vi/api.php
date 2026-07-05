@@ -83,6 +83,8 @@ return [
         'phone_unique' => 'Số điện thoại đã tồn tại trong hệ thống.',
         'current_password_required' => 'Vui lòng nhập mật khẩu hiện tại.',
         'password_different' => 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+        'prohibited' => 'Trường :attribute không được phép xuất hiện trong yêu cầu này.',
+
 
         // Beatmaps
         'name_required'     => 'Tên bài nhạc không được để trống.',

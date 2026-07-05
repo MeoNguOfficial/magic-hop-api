@@ -26,6 +26,16 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users,username',
             'password' => 'required|string|min:6', // Yêu cầu có trường 'password_confirmation' đi kèm
             'email'    => 'required|string|email|max:255|unique:users,email',
+            
+            // Chặn tuyệt đối việc gửi lên các trường hệ thống/quản trị khi đăng ký
+            'is_admin'       => 'prohibited',
+            'is_actived'     => 'prohibited',
+            'is_locked'      => 'prohibited',
+            'locked_until'   => 'prohibited',
+            'login_attempts' => 'prohibited',
+            'is_banned'      => 'prohibited',
+            'banned_until'   => 'prohibited',
+            'banned_reason'  => 'prohibited',
         ], [
             'username.required' => __('api.validation.username_required'),
             'username.unique'   => __('api.validation.username_unique'),
@@ -33,6 +43,16 @@ class AuthController extends Controller
             'email.unique'      => __('api.validation.email_unique'),
             'password.required' => __('api.validation.password_required'),
             'password.min'      => __('api.validation.password_min'),
+            
+            // Thông báo lỗi các trường cấm
+            'is_admin.prohibited'       => __('api.validation.prohibited', ['attribute' => 'is_admin']),
+            'is_actived.prohibited'     => __('api.validation.prohibited', ['attribute' => 'is_actived']),
+            'is_locked.prohibited'      => __('api.validation.prohibited', ['attribute' => 'is_locked']),
+            'locked_until.prohibited'   => __('api.validation.prohibited', ['attribute' => 'locked_until']),
+            'login_attempts.prohibited' => __('api.validation.prohibited', ['attribute' => 'login_attempts']),
+            'is_banned.prohibited'      => __('api.validation.prohibited', ['attribute' => 'is_banned']),
+            'banned_until.prohibited'   => __('api.validation.prohibited', ['attribute' => 'banned_until']),
+            'banned_reason.prohibited'  => __('api.validation.prohibited', ['attribute' => 'banned_reason']),
         ]);
 
         if ($validator->fails()) {

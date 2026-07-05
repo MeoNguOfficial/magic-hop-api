@@ -80,6 +80,8 @@ return [
         'phone_unique' => 'The phone number is already registered in the system.',
         'current_password_required' => 'Please enter your current password.',
         'password_different' => 'The new password must be different from the current password.',
+        'prohibited' => 'The :attribute field is prohibited.',
+
 
         // Beatmaps
         'name_required'     => 'The beatmap name field is required.',

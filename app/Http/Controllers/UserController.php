@@ -80,32 +80,85 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        // 1. Validate dữ liệu đầu vào
-        $validator = Validator::make($request->all(), [
+        $currentUser = $request->user();
+        $isAdmin = $currentUser && $currentUser->is_admin;
+
+        // 1. Định nghĩa rules động dựa trên vai trò
+        $rules = [
             'username' => 'required|string|max:255|unique:users,username',
             'realname' => 'nullable|string|max:255',
             'password' => 'required|string|min:6',
             'email'    => 'required|string|email|max:255|unique:users,email',
             'phone'    => 'nullable|string|max:20',
+        ];
+
+        if (!$isAdmin) {
+            // Chặn tuyệt đối việc gửi lên các trường hệ thống/quản trị đối với người dùng không phải admin hoặc khách
+            $rules['is_admin']       = 'prohibited';
+            $rules['is_actived']     = 'prohibited';
+            $rules['is_locked']      = 'prohibited';
+            $rules['locked_until']   = 'prohibited';
+            $rules['login_attempts'] = 'prohibited';
+            $rules['is_banned']      = 'prohibited';
+            $rules['banned_until']   = 'prohibited';
+            $rules['banned_reason']  = 'prohibited';
+        } else {
+            // Admin được phép thiết lập các trường quản trị khi khởi tạo tài khoản mới
+            $rules['is_admin']       = 'sometimes|boolean';
+            $rules['is_actived']     = 'sometimes|boolean';
+            $rules['is_locked']      = 'sometimes|boolean';
+            $rules['locked_until']   = 'nullable|date';
+            $rules['login_attempts'] = 'sometimes|integer|min:0';
+            $rules['is_banned']      = 'sometimes|boolean';
+            $rules['banned_until']   = 'nullable|date';
+            $rules['banned_reason']  = 'sometimes|string|max:255';
+        }
+
+        $validator = Validator::make($request->all(), $rules, [
+            'is_admin.prohibited'       => __('api.validation.prohibited', ['attribute' => 'is_admin']),
+            'is_actived.prohibited'     => __('api.validation.prohibited', ['attribute' => 'is_actived']),
+            'is_locked.prohibited'      => __('api.validation.prohibited', ['attribute' => 'is_locked']),
+            'locked_until.prohibited'   => __('api.validation.prohibited', ['attribute' => 'locked_until']),
+            'login_attempts.prohibited' => __('api.validation.prohibited', ['attribute' => 'login_attempts']),
+            'is_banned.prohibited'      => __('api.validation.prohibited', ['attribute' => 'is_banned']),
+            'banned_until.prohibited'   => __('api.validation.prohibited', ['attribute' => 'banned_until']),
+            'banned_reason.prohibited'  => __('api.validation.prohibited', ['attribute' => 'banned_reason']),
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // 2. Tạo User mới với ULID làm khóa chính
-        $user = User::create([
-            'id'       => (string) Str::ulid(),
-            'username' => $request->username,
-            'realname' => $request->realname,
-            'password' => Hash::make($request->password),
-            'email'    => $request->email,
-            'phone'    => $request->phone,
-            'is_actived'     => true, // Kích hoạt ngay sau khi tạo
+        // 2. Chuẩn bị dữ liệu để tạo User mới với ULID làm khóa chính
+        $userData = [
+            'id'             => (string) Str::ulid(),
+            'username'       => $request->username,
+            'realname'       => $request->realname,
+            'password'       => Hash::make($request->password),
+            'email'          => $request->email,
+            'phone'          => $request->phone,
+            'is_actived'     => true, // Mặc định kích hoạt
             'login_attempts' => 0,
             'is_locked'      => false,
             'is_banned'      => false,
-        ]);
+        ];
+
+        // Nếu người tạo là Admin, cho phép ghi đè các thiết lập quản trị truyền lên
+        if ($isAdmin) {
+            $adminData = $request->only([
+                'is_admin',
+                'is_actived',
+                'is_locked',
+                'locked_until',
+                'login_attempts',
+                'is_banned',
+                'banned_until',
+                'banned_reason',
+            ]);
+            $userData = array_merge($userData, $adminData);
+        }
+
+        $user = User::create($userData);
 
         // 3. Tạo setting mặc định cho user mới
         $user->setting()->create();

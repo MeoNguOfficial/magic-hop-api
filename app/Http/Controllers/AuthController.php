@@ -26,7 +26,7 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users,username',
             'password' => 'required|string|min:6', // Yêu cầu có trường 'password_confirmation' đi kèm
             'email'    => 'required|string|email|max:255|unique:users,email',
-            
+
             // Chặn tuyệt đối việc gửi lên các trường hệ thống/quản trị khi đăng ký
             'is_admin'       => 'prohibited',
             'is_actived'     => 'prohibited',
@@ -43,7 +43,7 @@ class AuthController extends Controller
             'email.unique'      => __('api.validation.email_unique'),
             'password.required' => __('api.validation.password_required'),
             'password.min'      => __('api.validation.password_min'),
-            
+
             // Thông báo lỗi các trường cấm
             'is_admin.prohibited'       => __('api.validation.prohibited', ['attribute' => 'is_admin']),
             'is_actived.prohibited'     => __('api.validation.prohibited', ['attribute' => 'is_actived']),
@@ -514,4 +514,19 @@ class AuthController extends Controller
             'message' => __('api.auth.change_password_success')
         ], 200);
     }
+
+    //Auto clear access Token nếu last_used_at quá 30 ngày không sử dụng (để tránh token tồn tại quá lâu gây rủi ro bảo mật)
+    // public function clearOldTokens()
+    // {
+    //     $thresholdDate = now()->subDays(30);
+
+    //     $deletedCount = DB::table('personal_access_tokens')
+    //         ->where('last_used_at', '<', $thresholdDate)
+    //         ->delete();
+
+    //     return response()->json([
+    //         'message' => __('api.auth.clear_old_tokens_success'),
+    //         'deleted_count' => $deletedCount
+    //     ], 200);
+    // }
 }

@@ -21,10 +21,11 @@ return new class extends Migration
 
             // 2. Khóa ngoại liên kết với bảng beatmaps (Dùng foreignId vì bảng beatmaps dùng ID tự tăng)
             $table->foreignId('beatmap_id')
-                  ->constrained('beatmaps')
-                  ->onDelete('cascade'); // Nếu xóa bài nhạc, dữ liệu bảng xếp hạng của bài đó tự động xóa theo
+                ->constrained('beatmaps')
+                ->onDelete('cascade'); // Nếu xóa bài nhạc, dữ liệu bảng xếp hạng của bài đó tự động xóa theo
 
             $table->integer('score'); // Điểm số đạt được ván đó
+            // $table->integer('hard_mode_score'); // Điểm số đạt được khi chơi chế độ khó
             $table->timestamps();
         });
     }

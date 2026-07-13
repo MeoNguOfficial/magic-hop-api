@@ -12,6 +12,7 @@ class UserScoreResource extends JsonResource
         return [
             'id'         => $this->id,
             'score'      => (int) $this->score,
+            'hard_mode_score' => (int) $this->hard_mode_score,
             'is_normal_mode_passed' => (bool) $this->is_normal_mode_passed,
             'created_at' => $this->created_at?->toIso8601String(),
 

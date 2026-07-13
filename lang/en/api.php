@@ -57,8 +57,11 @@ return [
     |--------------------------------------------------------------------------
     */
     'score' => [
-        'saved'     => 'Your score has been saved successfully!',
-        'not_found' => 'The requested score data was not found.',
+        'saved'      => 'Your score has been saved successfully!',
+        'new_record' => 'Congratulations! You have set a new personal record.',
+        'not_beaten' => 'This score does not beat your current record.',
+        'not_found'  => 'The requested score data was not found.',
+        'deleted'    => 'Suspicious score record deleted successfully.',
     ],
 
     /*
@@ -96,5 +99,7 @@ return [
         'beatmap_id_exists'   => 'The selected beatmap does not exist.',
         'score_required'      => 'The score field is required.',
         'score_integer'       => 'The gameplay score must be a positive integer.',
+        'hard_mode_score_integer' => 'The hard mode score must be a positive integer.',
+        'is_normal_mode_passed_boolean' => 'The normal mode pass status must be a boolean.',
     ]
 ];

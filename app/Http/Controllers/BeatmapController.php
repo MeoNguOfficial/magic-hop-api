@@ -10,6 +10,29 @@ use Illuminate\Support\Facades\Validator;
 class BeatmapController extends Controller
 {
     /**
+     * Helper nội bộ: Trả về dữ liệu các bộ lọc (genres, artists, copyright_statuses)
+     * được tái sử dụng bởi cả getFilterOptions() và index().
+     */
+    private function getFilterData(): array
+    {
+        return [
+            'genres'             => Beatmap::whereNotNull('genre')->distinct()->pluck('genre'),
+            'artists'            => Beatmap::whereNotNull('artist')->distinct()->pluck('artist'),
+            'copyright_statuses' => Beatmap::whereNotNull('copyright_status')->distinct()->pluck('copyright_status'),
+        ];
+    }
+
+    /**
+     * Khởi tạo Filter Options (Genres, Artists, Copyright Statuses)
+     * để Frontend có thể hiển thị các bộ lọc chi tiết.
+     * Gọi duy nhất 1 lần khi load trang (GET /api/beatmaps/filters).
+     */
+    public function getFilterOptions()
+    {
+        return response()->json($this->getFilterData());
+    }
+
+    /**
      * Lấy danh sách Beatmaps (Phân luồng Public / Admin) bằng cơ chế Cursor Lazy Loading.
      * Cơ chế này hỗ trợ cực tốt cho việc tối ưu hóa bộ nhớ client (unload/virtual scroll)
      * và tăng tốc độ truy vấn ở phía Database khi dữ liệu lớn.
@@ -23,15 +46,36 @@ class BeatmapController extends Controller
         $query = Beatmap::query()->orderBy('id', 'desc');
         $perPage = 10; // Mặc định cho người chơi (Public)
 
-        // --- Bắt đầu bổ sung: Tìm kiếm theo từ khóa ---
+        // --- Bắt đầu bổ sung: Tìm kiếm theo từ khóa chung ---
         if ($request->filled('search')) {
             $keyword = '%' . $request->query('search') . '%';
             $query->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', $keyword)
-                  ->orWhere('artist', 'like', $keyword);
+                    ->orWhere('artist', 'like', $keyword);
             });
         }
         // --- Kết thúc bổ sung ---
+
+        // ==========================================
+        // BỔ SUNG CÁC BỘ LỌC CHI TIẾT (FILTER)
+        // ==========================================
+
+        // 1. Lọc theo Thể loại (Genre) - Khớp chính xác
+        if ($request->filled('genre')) {
+            $query->where('genre', $request->query('genre'));
+        }
+
+        // 2. Lọc theo Ca sĩ / Nghệ sĩ (Artist) - Khớp tương đối (hoặc chính xác tùy bạn chọn)
+        if ($request->filled('artist')) {
+            $query->where('artist', 'like', '%' . $request->query('artist') . '%');
+        }
+
+        // 3. Lọc theo Trạng thái bản quyền (Copyright Status)
+        if ($request->filled('copyright_status')) {
+            $query->where('copyright_status', $request->query('copyright_status'));
+        }
+
+        // ==========================================
 
         // Nếu KHÔNG PHẢI admin (Luồng Public dành cho người chơi)
         if ($request->query('mode') !== 'admin') {
@@ -73,14 +117,16 @@ class BeatmapController extends Controller
         // Lấy ID của phần tử cuối cùng trong trang hiện tại để làm con trỏ (cursor) tiếp theo
         $nextCursor = $beatmaps->last()?->id;
 
-        // Trả về dữ liệu kết hợp với Meta Cursor để Frontend quản lý tải/hủy tải (load/unload)
+        // Trả về dữ liệu kết hợp với Meta Cursor và danh sách bộ lọc gợi ý
+        // filter_options đồng bộ với GET /api/beatmaps/filters (getFilterOptions)
         return BeatmapResource::collection($beatmaps)->additional([
             'meta' => [
                 'next_cursor' => $hasMore ? $nextCursor : null,
                 'has_more'    => $hasMore,
                 'per_page'    => $perPage,
                 'count'       => $beatmaps->count(),
-            ]
+            ],
+            'filter_options' => $this->getFilterData(),
         ]);
     }
 

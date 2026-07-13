@@ -16,12 +16,14 @@ class UserScore extends Model
         'user_id',
         'beatmap_id',
         'score',
+        'hard_mode_score',
         'is_normal_mode_passed'
     ];
 
     protected $casts = [
         'beatmap_id' => 'integer',
         'score'      => 'integer',
+        'hard_mode_score' => 'integer',
         'is_normal_mode_passed' => 'boolean',
     ];
 

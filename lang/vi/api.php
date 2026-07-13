@@ -60,8 +60,11 @@ return [
     |--------------------------------------------------------------------------
     */
     'score' => [
-        'saved'     => 'Điểm số của bạn đã được ghi nhận thành công!',
-        'not_found' => 'Không tìm thấy dữ liệu điểm số yêu cầu.',
+        'saved'      => 'Điểm số của bạn đã được ghi nhận thành công!',
+        'new_record' => 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.',
+        'not_beaten' => 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.',
+        'not_found'  => 'Không tìm thấy dữ liệu điểm số yêu cầu.',
+        'deleted'    => 'Đã xóa bản ghi điểm số khả nghi thành công.',
     ],
 
     /*
@@ -99,5 +102,7 @@ return [
         'beatmap_id_exists'   => 'Bài nhạc được chọn không tồn tại trên hệ thống.',
         'score_required'      => 'Điểm số đạt được không được để trống.',
         'score_integer'       => 'Điểm số màn chơi bắt buộc phải là một số nguyên dương.',
+        'hard_mode_score_integer' => 'Điểm số chế độ khó bắt buộc phải là một số nguyên dương.',
+        'is_normal_mode_passed_boolean' => 'Trạng thái hoàn thành chế độ chơi thường phải là kiểu boolean.',
     ]
 ];

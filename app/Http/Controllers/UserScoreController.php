@@ -63,15 +63,17 @@ class UserScoreController extends Controller
     {
         // 1. Validate dữ liệu đầu vào gửi lên từ Game Client
         $validator = Validator::make($request->all(), [
-            'beatmap_id' => 'required|exists:beatmaps,id',
-            'score'      => 'required|integer|min:0',
+            'beatmap_id'            => 'required|exists:beatmaps,id',
+            'score'                 => 'required|integer|min:0',
+            'hard_mode_score'       => 'nullable|integer|min:0',
             'is_normal_mode_passed' => 'nullable|boolean',
         ], [
-            'beatmap_id.required' => __('api.validation.beatmap_id_required'),
-            'beatmap_id.exists'   => __('api.validation.beatmap_id_exists'),
-            'score.required'      => __('api.validation.score_required'),
-            'score.integer'       => __('api.validation.score_integer'),
-            'is_normal_mode_passed.boolean' => __('api.validation.is_normal_mode_passed_boolean'),
+            'beatmap_id.required'            => __('api.validation.beatmap_id_required'),
+            'beatmap_id.exists'              => __('api.validation.beatmap_id_exists'),
+            'score.required'                 => __('api.validation.score_required'),
+            'score.integer'                  => __('api.validation.score_integer'),
+            'hard_mode_score.integer'        => __('api.validation.hard_mode_score_integer'),
+            'is_normal_mode_passed.boolean'  => __('api.validation.is_normal_mode_passed_boolean'),
         ]);
 
         if ($validator->fails()) {
@@ -81,6 +83,7 @@ class UserScoreController extends Controller
         $userId = $request->user()->id;
         $beatmapId = $request->beatmap_id;
         $newScore = $request->score;
+        $newHardScore = $request->hard_mode_score;
         $isNormalModePassed = $request->is_normal_mode_passed ?? false;
         
         // 2. Tìm điểm số hiện tại của User trên Beatmap này
@@ -89,19 +92,29 @@ class UserScoreController extends Controller
             ->first();
 
         if ($existingScore) {
-            // Nếu điểm mới cao hơn điểm cũ -> Tiến hành cập nhật kỷ lục mới
-            if ($newScore > $existingScore->score) {
-                $existingScore->update([
-                    'score' => $newScore,
-                    'is_normal_mode_passed' => $isNormalModePassed,
-                    // Nếu bạn có dùng timestamps, update() sẽ tự động làm mới `updated_at` (thời gian đạt kỷ lục)
-                ]);
+            $updatedData = [];
+            $hasNewRecord = false;
 
+            // Kiểm tra và cập nhật kỷ lục chế độ thường
+            if ($newScore > $existingScore->score) {
+                $updatedData['score'] = $newScore;
+                $updatedData['is_normal_mode_passed'] = $isNormalModePassed;
+                $hasNewRecord = true;
+            }
+
+            // Kiểm tra và cập nhật kỷ lục chế độ khó
+            if ($newHardScore !== null && $newHardScore > $existingScore->hard_mode_score) {
+                $updatedData['hard_mode_score'] = $newHardScore;
+                $hasNewRecord = true;
+            }
+
+            if ($hasNewRecord) {
+                $existingScore->update($updatedData);
                 $score = $existingScore;
                 $message = __('api.score.new_record') ?? 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.';
                 $statusCode = 200; // 200 OK cho hành động cập nhật thành công
             } else {
-                // Nếu điểm mới thấp hơn hoặc bằng -> Không lưu, trả về kỷ lục cũ hiện tại
+                // Nếu không vượt qua kỷ lục nào -> Không lưu, trả về kỷ lục cũ hiện tại
                 $score = $existingScore;
                 $message = __('api.score.not_beaten') ?? 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.';
                 $statusCode = 200;
@@ -109,9 +122,10 @@ class UserScoreController extends Controller
         } else {
             // Nếu chưa từng chơi bài này -> Tạo mới bản ghi điểm số
             $score = UserScore::create([
-                'user_id'    => $userId,
-                'beatmap_id' => $beatmapId,
-                'score'      => $newScore,
+                'user_id'               => $userId,
+                'beatmap_id'            => $beatmapId,
+                'score'                 => $newScore,
+                'hard_mode_score'       => $newHardScore ?? 0,
                 'is_normal_mode_passed' => $isNormalModePassed,
             ]);
 
@@ -131,12 +145,18 @@ class UserScoreController extends Controller
     /**
      * Lấy bảng xếp hạng Top 10 kỷ lục điểm cao nhất của một Beatmap
      */
-    public function leaderboard($beatmapId)
+    public function leaderboard(Request $request, $beatmapId)
     {
-        $scores = UserScore::where('beatmap_id', $beatmapId)
-            ->with(['user', 'beatmap'])
-            ->orderByDesc('score')
-            ->orderBy('updated_at')     // Thay vì created_at, ta dùng updated_at vì mốc thời gian kỷ lục mới có thể đã bị thay đổi ở hàm store
+        $query = UserScore::where('beatmap_id', $beatmapId)
+            ->with(['user', 'beatmap']);
+
+        if ($request->query('mode') === 'hard') {
+            $query->orderByDesc('hard_mode_score');
+        } else {
+            $query->orderByDesc('score');
+        }
+
+        $scores = $query->orderBy('updated_at')     // Thay vì created_at, ta dùng updated_at vì mốc thời gian kỷ lục mới có thể đã bị thay đổi ở hàm store
             ->limit(10)
             ->get();
 

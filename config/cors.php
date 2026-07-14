@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://127.0.0.1:9091', 'https://magic-hop-s96i4rg4y-meongutw-5405s-projects.vercel.app'],
+    'allowed_origins' => ['http://127.0.0.1:9091', 'https://magic-hop-api.onrender.com', 'https://magic-hop.vercel.app'],
 
     'allowed_origins_patterns' => [],
 

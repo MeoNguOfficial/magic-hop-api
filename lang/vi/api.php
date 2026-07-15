@@ -33,6 +33,7 @@ return [
     'user' => [
         'created'   => 'Đăng ký tài khoản mới thành công.',
         'updated'   => 'Cập nhật thông tin cá nhân thành công.',
+        'deleted'   => 'Xóa tài khoản người dùng thành công.',
         'not_found' => 'Không tìm thấy người dùng này trên hệ thống.',
         'retrieved' => 'Lấy thông tin tài khoản thành công!',
     ],

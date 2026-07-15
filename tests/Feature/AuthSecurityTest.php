@@ -245,4 +245,79 @@ class AuthSecurityTest extends TestCase
         $response = $this->withToken($token)->postJson('/api/logout');
         $response->assertStatus(200);
     }
+
+    public function test_user_cannot_delete_other_user(): void
+    {
+        $user1 = User::create([
+            'username' => 'user_one_' . time(),
+            'email' => 'user_one_' . time() . '@magichop.com',
+            'password' => Hash::make('password123'),
+            'is_admin' => false,
+            'is_actived' => true,
+        ]);
+        $user1->setting()->create();
+
+        $user2 = User::create([
+            'username' => 'user_two_' . time(),
+            'email' => 'user_two_' . time() . '@magichop.com',
+            'password' => Hash::make('password123'),
+            'is_admin' => false,
+            'is_actived' => true,
+        ]);
+        $user2->setting()->create();
+
+        $token1 = $user1->createToken('Game-Client')->plainTextToken;
+
+        $response = $this->withToken($token1)->deleteJson("/api/users/{$user2->id}");
+        $response->assertStatus(403);
+    }
+
+    public function test_user_can_delete_themselves(): void
+    {
+        $user = User::create([
+            'username' => 'user_self_' . time(),
+            'email' => 'user_self_' . time() . '@magichop.com',
+            'password' => Hash::make('password123'),
+            'is_admin' => false,
+            'is_actived' => true,
+        ]);
+        $user->setting()->create();
+
+        $token = $user->createToken('Game-Client')->plainTextToken;
+
+        $response = $this->withToken($token)->deleteJson("/api/users/{$user->id}");
+        $response->assertStatus(200)
+            ->assertJsonPath('message', __('api.user.deleted'));
+
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
+
+    public function test_admin_can_delete_any_user(): void
+    {
+        $admin = User::create([
+            'username' => 'admin_' . time(),
+            'email' => 'admin_' . time() . '@magichop.com',
+            'password' => Hash::make('password123'),
+            'is_admin' => true,
+            'is_actived' => true,
+        ]);
+        $admin->setting()->create();
+
+        $user = User::create([
+            'username' => 'user_target_' . time(),
+            'email' => 'user_target_' . time() . '@magichop.com',
+            'password' => Hash::make('password123'),
+            'is_admin' => false,
+            'is_actived' => true,
+        ]);
+        $user->setting()->create();
+
+        $token = $admin->createToken('Game-Client')->plainTextToken;
+
+        $response = $this->withToken($token)->deleteJson("/api/users/{$user->id}");
+        $response->assertStatus(200)
+            ->assertJsonPath('message', __('api.user.deleted'));
+
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
 }

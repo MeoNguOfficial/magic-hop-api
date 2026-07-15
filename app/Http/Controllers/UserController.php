@@ -277,4 +277,27 @@ class UserController extends Controller
         $user = User::with('setting')->findOrFail($id);
         return new UserResource($user);
     }
+
+    /**
+     * Xóa một người dùng (Hỗ trợ cả Admin và User tự xóa tài khoản của mình)
+     */
+    public function destroy(Request $request, string $id)
+    {
+        $user = User::findOrFail($id);
+        $currentUser = $request->user();
+        $isAdmin = $currentUser && $currentUser->is_admin;
+
+        // Phân quyền: User thường chỉ được xóa chính mình, Admin xóa được bất cứ ai
+        if (!$isAdmin && $currentUser->id !== $user->id) {
+            return response()->json(['message' => __('api.auth.forbidden')], 403);
+        }
+
+        // Thu hồi toàn bộ token của user bị xóa
+        $user->tokens()->delete();
+
+        // Xóa user (các bảng liên quan đã có onDelete('cascade') ở mức DB: settings, scores, chat_rooms)
+        $user->delete();
+
+        return response()->json(['message' => __('api.user.deleted')]);
+    }
 }

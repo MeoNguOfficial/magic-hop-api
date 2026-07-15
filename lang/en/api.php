@@ -31,6 +31,7 @@ return [
     'user' => [
         'created'   => 'Account registered successfully.',
         'updated'   => 'Profile updated successfully.',
+        'deleted'   => 'User account deleted successfully.',
         'not_found' => 'User not found in our records.',
     ],
 

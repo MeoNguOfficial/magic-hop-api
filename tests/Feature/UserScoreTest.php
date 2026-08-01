@@ -86,10 +86,10 @@ class UserScoreTest extends TestCase
         ]);
 
         $response->assertStatus(200);
-        // Scores should remain unchanged
+        // score remains unchanged, but normal pass flag should still be updated
         $response->assertJsonPath('data.score', 100);
         $response->assertJsonPath('data.hard_mode_score', 50);
-        $response->assertJsonPath('data.is_normal_mode_passed', false);
+        $response->assertJsonPath('data.is_normal_mode_passed', true);
 
         // Scenario 2: Send better normal score, worse/null hard score
         $response = $this->withToken($this->token)->postJson('/api/scores', [
@@ -118,6 +118,41 @@ class UserScoreTest extends TestCase
         $response->assertJsonPath('data.score', 120);
         $response->assertJsonPath('data.hard_mode_score', 70);
         $response->assertJsonPath('data.is_normal_mode_passed', true);
+    }
+
+    public function test_index_respects_request_limit()
+    {
+        UserScore::create([
+            'user_id' => $this->user->id,
+            'beatmap_id' => $this->beatmap->id,
+            'score' => 100,
+            'hard_mode_score' => 50,
+            'is_normal_mode_passed' => true,
+        ]);
+
+        $user2 = User::create([
+            'id' => (string) \Illuminate\Support\Str::ulid(),
+            'username' => 'user_limit_' . uniqid(),
+            'email' => 'user_limit_' . uniqid() . '@magichop.com',
+            'password' => Hash::make('password123'),
+            'is_actived' => true,
+        ]);
+        $user2->setting()->create();
+
+        UserScore::create([
+            'user_id' => $user2->id,
+            'beatmap_id' => $this->beatmap->id,
+            'score' => 90,
+            'hard_mode_score' => 40,
+            'is_normal_mode_passed' => false,
+        ]);
+
+        $response = $this->withToken($this->token)->getJson('/api/scores?limit=1');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('meta.per_page', 1);
+        $response->assertJsonPath('meta.count', 1);
+        $this->assertCount(1, $response->json('data'));
     }
 
     public function test_validation_fails_for_invalid_hard_mode_score()

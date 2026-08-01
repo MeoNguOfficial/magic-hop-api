@@ -17,7 +17,7 @@ class UserScoreController extends Controller
     {
         // Nạp sẵn quan hệ user và beatmap để tránh lỗi N+1 Query
         $query = UserScore::with(['user', 'beatmap'])->orderBy('id', 'desc');
-        $perPage = 15; // Số lượng bản ghi mỗi trang
+        $perPage = min((int) $request->query('limit', 15), 1000); // Số lượng bản ghi mỗi trang
 
         // Lọc theo beatmap_id nếu có truyền lên
         if ($request->filled('beatmap_id')) {
@@ -85,7 +85,7 @@ class UserScoreController extends Controller
         $newScore = $request->score;
         $newHardScore = $request->hard_mode_score;
         $isNormalModePassed = $request->is_normal_mode_passed ?? false;
-        
+
         // 2. Tìm điểm số hiện tại của User trên Beatmap này
         $existingScore = UserScore::where('user_id', $userId)
             ->where('beatmap_id', $beatmapId)
@@ -98,7 +98,12 @@ class UserScoreController extends Controller
             // Kiểm tra và cập nhật kỷ lục chế độ thường
             if ($newScore > $existingScore->score) {
                 $updatedData['score'] = $newScore;
-                $updatedData['is_normal_mode_passed'] = $isNormalModePassed;
+                $hasNewRecord = true;
+            }
+
+            // Luôn cập nhật trạng thái hoàn thành chế độ thường khi người chơi pass
+            if ($isNormalModePassed && !$existingScore->is_normal_mode_passed) {
+                $updatedData['is_normal_mode_passed'] = true;
                 $hasNewRecord = true;
             }
 

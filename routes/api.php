@@ -50,11 +50,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/users', [UserController::class, 'index']);
-    Route::post('/users', [UserController::class, 'store']);
     Route::get('/users/{id}', [UserController::class, 'show']);
-    Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
+
+    // Chỉ Admin mới được tạo / cập nhật / xóa tài khoản người dùng
+    Route::middleware('admin')->group(function () {
+        Route::post('/users', [UserController::class, 'store']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    });
 
 
     /*
@@ -114,7 +118,7 @@ Route::middleware('auth:sanctum')->group(function () {
     | - Các cổng tương tác đặc biệt tối ưu cho việc vận hành máy chủ và quản lý map.
     | - Bảo vệ chặt chẽ các tài nguyên quản lý.
     */
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('admin')->group(function () {
 
         // --- Quản lý Màn chơi / Bản đồ nốt nhạc (Beatmap Management) ---
         Route::prefix('beatmaps')->group(function () {

@@ -5,6 +5,7 @@ use App\Models\Beatmap;
 use App\Models\UserScore;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -324,3 +325,15 @@ Schedule::call(function () {
         Log::info("Auto Scheduled Task: Đã tự động ẩn bản đồ nhạc '{$bm->name}' do vượt quá ngày ẩn hiển thị ({$bm->day_hide}).");
     }
 })->dailyAt('00:00')->name('auto-hide-expired-beatmaps');
+
+
+// Tác vụ tự động: Dọn dẹp OTP quên mật khẩu đã hết hạn mỗi giờ một lần
+Schedule::call(function () {
+    $deletedCount = DB::table('password_reset_otps')
+        ->where('expires_at', '<', Carbon::now())
+        ->delete();
+
+    if ($deletedCount > 0) {
+        Log::info("Auto Scheduled Task: Đã tự động xóa {$deletedCount} bản ghi OTP quên mật khẩu hết hạn.");
+    }
+})->hourly()->name('auto-clean-expired-password-reset-otps');

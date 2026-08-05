@@ -209,4 +209,56 @@ class UserScoreTest extends TestCase
         $this->assertEquals($user2->id, $response->json('data.0.user.id'));
         $this->assertEquals($this->user->id, $response->json('data.1.user.id'));
     }
+
+    public function test_score_verification_accepts_valid_score_within_beat_limit()
+    {
+        // 5 ones in beat array -> max allowed score = 5 * 21 = 105
+        $response = $this->withToken($this->token)->postJson('/api/scores', [
+            'beatmap_id' => $this->beatmap->id,
+            'score' => 105,
+            'beat' => [1, 1, 1, 1, 1],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.score', 105);
+    }
+
+    public function test_score_verification_accepts_endless_mode_score_with_multiplier()
+    {
+        // 4 ones in beat array, round_endless = 3 -> max allowed score = 4 * 21 * 3 = 252
+        $response = $this->withToken($this->token)->postJson('/api/scores', [
+            'beatmap_id' => $this->beatmap->id,
+            'score' => 250,
+            'beat' => [1, 1, 1, 1],
+            'round_endless' => 3,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.score', 250);
+    }
+
+    public function test_score_verification_rejects_score_exceeding_beat_limit()
+    {
+        // 2 ones in beat array -> max allowed score = 2 * 21 = 42. Sending score = 100 should fail.
+        $response = $this->withToken($this->token)->postJson('/api/scores', [
+            'beatmap_id' => $this->beatmap->id,
+            'score' => 100,
+            'beat' => [1, 1, 0, 0],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['score']);
+    }
+
+    public function test_score_verification_auto_calculates_score_when_score_omitted()
+    {
+        // 3 ones in beat array, no score provided -> calculated score = 3 * 21 = 63
+        $response = $this->withToken($this->token)->postJson('/api/scores', [
+            'beatmap_id' => $this->beatmap->id,
+            'beats' => [1, 1, 1],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.score', 63);
+    }
 }

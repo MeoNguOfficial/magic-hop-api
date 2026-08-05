@@ -61,11 +61,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'score' => [
-        'saved'      => 'Điểm số của bạn đã được ghi nhận thành công!',
-        'new_record' => 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.',
-        'not_beaten' => 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.',
-        'not_found'  => 'Không tìm thấy dữ liệu điểm số yêu cầu.',
-        'deleted'    => 'Đã xóa bản ghi điểm số khả nghi thành công.',
+        'saved'               => 'Điểm số của bạn đã được ghi nhận thành công!',
+        'new_record'          => 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.',
+        'not_beaten'          => 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.',
+        'not_found'           => 'Không tìm thấy dữ liệu điểm số yêu cầu.',
+        'deleted'             => 'Đã xóa bản ghi điểm số khả nghi thành công.',
+        'verification_failed' => 'Xác minh điểm số thất bại. Điểm số vượt quá giới hạn cho phép từ mảng nhịp.',
     ],
 
     /*
@@ -105,5 +106,8 @@ return [
         'score_integer'       => 'Điểm số màn chơi bắt buộc phải là một số nguyên dương.',
         'hard_mode_score_integer' => 'Điểm số chế độ khó bắt buộc phải là một số nguyên dương.',
         'is_normal_mode_passed_boolean' => 'Trạng thái hoàn thành chế độ chơi thường phải là kiểu boolean.',
+        'beat_array'          => 'Tham số mảng beat/beats gửi lên phải là kiểu mảng (array).',
+        'round_endless_integer' => 'Số vòng chơi Endless bắt buộc phải là một số nguyên dương.',
+        'score_exceeds_max'   => 'Điểm số gửi lên (:received) vượt quá giới hạn tối đa cho phép từ mảng beat (:max_score).',
     ]
 ];

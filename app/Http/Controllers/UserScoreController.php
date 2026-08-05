@@ -64,14 +64,27 @@ class UserScoreController extends Controller
         // 1. Validate dữ liệu đầu vào gửi lên từ Game Client
         $validator = Validator::make($request->all(), [
             'beatmap_id'            => 'required|exists:beatmaps,id',
-            'score'                 => 'required|integer|min:0',
+            'score'                 => 'nullable|integer|min:0',
+            'beat'                  => 'nullable|array',
+            'beats'                 => 'nullable|array',
+            'round_endless'         => 'nullable|integer|min:1',
+            'endless_round'         => 'nullable|integer|min:1',
+            'round'                 => 'nullable|integer|min:1',
+            'round_count'           => 'nullable|integer|min:1',
+            'endless_count'         => 'nullable|integer|min:1',
             'hard_mode_score'       => 'nullable|integer|min:0',
             'is_normal_mode_passed' => 'nullable|boolean',
         ], [
             'beatmap_id.required'            => __('api.validation.beatmap_id_required'),
             'beatmap_id.exists'              => __('api.validation.beatmap_id_exists'),
-            'score.required'                 => __('api.validation.score_required'),
             'score.integer'                  => __('api.validation.score_integer'),
+            'beat.array'                     => __('api.validation.beat_array'),
+            'beats.array'                    => __('api.validation.beat_array'),
+            'round_endless.integer'          => __('api.validation.round_endless_integer'),
+            'endless_round.integer'          => __('api.validation.round_endless_integer'),
+            'round.integer'                  => __('api.validation.round_endless_integer'),
+            'round_count.integer'            => __('api.validation.round_endless_integer'),
+            'endless_count.integer'          => __('api.validation.round_endless_integer'),
             'hard_mode_score.integer'        => __('api.validation.hard_mode_score_integer'),
             'is_normal_mode_passed.boolean'  => __('api.validation.is_normal_mode_passed_boolean'),
         ]);
@@ -80,53 +93,106 @@ class UserScoreController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Bắt buộc phải truyền ít nhất 1 trong 2: score hoặc mảng beat
+        if (!$request->has('score') && !$request->has('beat') && !$request->has('beats')) {
+            return response()->json([
+                'errors' => [
+                    'score' => [__('api.validation.score_required')]
+                ]
+            ], 422);
+        }
+
         $userId = $request->user()->id;
         $beatmapId = $request->beatmap_id;
-        $newScore = $request->score;
         $newHardScore = $request->hard_mode_score;
-        $isNormalModePassed = $request->is_normal_mode_passed ?? false;
+        $isNormalModePassed = (bool) ($request->is_normal_mode_passed ?? false);
 
-        // 2. Tìm điểm số hiện tại của User trên Beatmap này
+        // 2. Tìm điểm số kỷ lục hiện tại của User trên Beatmap này (nếu có)
         $existingScore = UserScore::where('user_id', $userId)
             ->where('beatmap_id', $beatmapId)
             ->first();
 
-        if ($existingScore) {
-            $updatedData = [];
-            $hasNewRecord = false;
+        // 3. Cơ chế xác minh điểm số (Score Verification) & Tính toán điểm số mới
+        $beatInput = $request->input('beat') ?? $request->input('beats');
+        $roundEndless = max(1, (int) (
+            $request->input('round_endless')
+            ?? $request->input('endless_round')
+            ?? $request->input('round')
+            ?? $request->input('round_count')
+            ?? $request->input('endless_count')
+            ?? 1
+        ));
 
-            // Kiểm tra và cập nhật kỷ lục chế độ thường
-            if ($newScore > $existingScore->score) {
-                $updatedData['score'] = $newScore;
-                $hasNewRecord = true;
-            }
+        if ($beatInput !== null && is_array($beatInput)) {
+            // Đếm số phần tử nhịp đạt chuẩn 1 trong mảng beat
+            $countOnes = count(array_filter($beatInput, function ($val) {
+                return $val == 1 || $val === '1' || $val === true;
+            }));
 
-            // Luôn cập nhật trạng thái hoàn thành chế độ thường khi người chơi pass
-            if ($isNormalModePassed && !$existingScore->is_normal_mode_passed) {
-                $updatedData['is_normal_mode_passed'] = true;
-                $hasNewRecord = true;
-            }
+            // Mỗi 1 beat chuẩn mang giá trị 21 điểm (chuỗi Perfect Combo tối đa 21đ/beat)
+            // Trong chế độ Endless, nhân thêm với hệ số số vòng Endless (round_endless)
+            $maxAllowedScore = $countOnes * 21 * $roundEndless;
 
-            // Kiểm tra và cập nhật kỷ lục chế độ khó
-            if ($newHardScore !== null && $newHardScore > $existingScore->hard_mode_score) {
-                $updatedData['hard_mode_score'] = $newHardScore;
-                $hasNewRecord = true;
-            }
-
-            if ($hasNewRecord) {
-                $existingScore->update($updatedData);
-                $score = $existingScore;
-                $message = __('api.score.new_record') ?? 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.';
-                $statusCode = 200; // 200 OK cho hành động cập nhật thành công
+            // Nếu người chơi truyền score lên, kiểm tra xem score có vượt quá Max Allowed Score không
+            if ($request->has('score') && $request->score !== null) {
+                $submittedScore = (int) $request->score;
+                if ($submittedScore > $maxAllowedScore) {
+                    return response()->json([
+                        'message' => __('api.score.verification_failed') ?? 'Xác minh điểm số thất bại.',
+                        'errors'  => [
+                            'score' => [
+                                __('api.validation.score_exceeds_max', [
+                                    'received'  => $submittedScore,
+                                    'max_score' => $maxAllowedScore
+                                ]) ?? "Điểm số gửi lên ({$submittedScore}) vượt quá giới hạn tối đa cho phép từ mảng beat ({$maxAllowedScore})."
+                            ]
+                        ]
+                    ], 422);
+                }
+                $newScore = $submittedScore;
             } else {
-                // Nếu không vượt qua kỷ lục nào -> Không lưu, trả về kỷ lục cũ hiện tại
-                $score = $existingScore;
-                $message = __('api.score.not_beaten') ?? 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.';
-                $statusCode = 200;
+                // Nếu client chỉ gửi mảng beat mà không truyền score -> Server tự tính điểm chuẩn
+                $newScore = $maxAllowedScore;
             }
         } else {
+            // Tương thích ngược: Nếu client không gửi mảng beat
+            $newScore = (int) ($request->score ?? 0);
+        }
+
+        // 4. Kiểm tra điểm số gửi lên so với High Record hiện tại
+        if ($existingScore) {
+            $isBetterNormalScore = $newScore > $existingScore->score;
+            $isBetterHardScore = ($newHardScore !== null && $newHardScore > $existingScore->hard_mode_score);
+            $isNewPass = ($isNormalModePassed && !$existingScore->is_normal_mode_passed);
+
+            // Nếu không đạt/không vượt qua kỷ lục ở bất kỳ chỉ số nào -> Bỏ qua không cập nhật, trả về kỷ lục cũ ngay
+            if (!$isBetterNormalScore && !$isBetterHardScore && !$isNewPass) {
+                $existingScore->load(['user', 'beatmap']);
+                return (new UserScoreResource($existingScore))
+                    ->additional(['message' => __('api.score.not_beaten') ?? 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.'])
+                    ->response()
+                    ->setStatusCode(200);
+            }
+
+            // Nếu đạt kỷ lục mới -> Cập nhật các chỉ số tương ứng
+            $updatedData = [];
+            if ($isBetterNormalScore) {
+                $updatedData['score'] = $newScore;
+            }
+            if ($isNewPass) {
+                $updatedData['is_normal_mode_passed'] = true;
+            }
+            if ($isBetterHardScore) {
+                $updatedData['hard_mode_score'] = $newHardScore;
+            }
+
+            $existingScore->update($updatedData);
+            $scoreRecord = $existingScore;
+            $message = __('api.score.new_record') ?? 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.';
+            $statusCode = 200;
+        } else {
             // Nếu chưa từng chơi bài này -> Tạo mới bản ghi điểm số
-            $score = UserScore::create([
+            $scoreRecord = UserScore::create([
                 'user_id'               => $userId,
                 'beatmap_id'            => $beatmapId,
                 'score'                 => $newScore,
@@ -135,13 +201,13 @@ class UserScoreController extends Controller
             ]);
 
             $message = __('api.score.saved') ?? 'Đã lưu điểm số thành công.';
-            $statusCode = 201; // 201 Created cho bản ghi mới tinh
+            $statusCode = 201;
         }
 
         // Nạp kèm thông tin quan hệ để Resource biên dịch dữ liệu chính xác
-        $score->load(['user', 'beatmap']);
+        $scoreRecord->load(['user', 'beatmap']);
 
-        return (new UserScoreResource($score))
+        return (new UserScoreResource($scoreRecord))
             ->additional(['message' => $message])
             ->response()
             ->setStatusCode($statusCode);

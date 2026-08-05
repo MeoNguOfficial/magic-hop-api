@@ -58,11 +58,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'score' => [
-        'saved'      => 'Your score has been saved successfully!',
-        'new_record' => 'Congratulations! You have set a new personal record.',
-        'not_beaten' => 'This score does not beat your current record.',
-        'not_found'  => 'The requested score data was not found.',
-        'deleted'    => 'Suspicious score record deleted successfully.',
+        'saved'               => 'Your score has been saved successfully!',
+        'new_record'          => 'Congratulations! You have set a new personal record.',
+        'not_beaten'          => 'This score does not beat your current record.',
+        'not_found'           => 'The requested score data was not found.',
+        'deleted'             => 'Suspicious score record deleted successfully.',
+        'verification_failed' => 'Score verification failed. Submitted score exceeds maximum allowed for beat array.',
     ],
 
     /*
@@ -102,5 +103,8 @@ return [
         'score_integer'       => 'The gameplay score must be a positive integer.',
         'hard_mode_score_integer' => 'The hard mode score must be a positive integer.',
         'is_normal_mode_passed_boolean' => 'The normal mode pass status must be a boolean.',
+        'beat_array'          => 'The beat parameter must be a valid array.',
+        'round_endless_integer' => 'The endless round count must be a positive integer.',
+        'score_exceeds_max'   => 'Submitted score (:received) exceeds maximum allowed score for beat array (:max_score).',
     ]
 ];

@@ -59,12 +59,22 @@ class UserScoreController extends Controller
     /**
      * Lưu hoặc cập nhật điểm số (Chỉ lưu nếu đạt kỷ lục mới - New Personal Best)
      */
+    /**
+     * Lưu hoặc cập nhật điểm số (Chỉ lưu nếu đạt kỷ lục mới - New Personal Best)
+     */
     public function store(Request $request)
     {
         // 1. Validate dữ liệu đầu vào gửi lên từ Game Client
         $validator = Validator::make($request->all(), [
             'beatmap_id'            => 'required|exists:beatmaps,id',
             'score'                 => 'nullable|integer|min:0',
+            'easy_mode_score'       => 'nullable|integer|min:0',
+            'hard_mode_score'       => 'nullable|integer|min:0',
+            'asian_mode_score'      => 'nullable|integer|min:0',
+            'is_easy_mode_passed'   => 'nullable|boolean',
+            'is_normal_mode_passed' => 'nullable|boolean',
+            'is_hard_mode_passed'   => 'nullable|boolean',
+            'is_asian_mode_passed'  => 'nullable|boolean',
             'beat'                  => 'nullable|array',
             'beats'                 => 'nullable|array',
             'round_endless'         => 'nullable|integer|min:1',
@@ -72,8 +82,11 @@ class UserScoreController extends Controller
             'round'                 => 'nullable|integer|min:1',
             'round_count'           => 'nullable|integer|min:1',
             'endless_count'         => 'nullable|integer|min:1',
-            'hard_mode_score'       => 'nullable|integer|min:0',
-            'is_normal_mode_passed' => 'nullable|boolean',
+            'is_easy_mode'          => 'nullable|boolean',
+            'is_hard_mode'          => 'nullable|boolean',
+            'is_rage_mode'          => 'nullable|boolean',
+            'is_asian_mode'         => 'nullable|boolean',
+            'mode'                  => 'nullable|string',
         ], [
             'beatmap_id.required'            => __('api.validation.beatmap_id_required'),
             'beatmap_id.exists'              => __('api.validation.beatmap_id_exists'),
@@ -93,8 +106,8 @@ class UserScoreController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Bắt buộc phải truyền ít nhất 1 trong 2: score hoặc mảng beat
-        if (!$request->has('score') && !$request->has('beat') && !$request->has('beats')) {
+        // Bắt buộc phải truyền ít nhất 1 trong các chỉ số điểm hoặc mảng beat
+        if (!$request->has('score') && !$request->has('easy_mode_score') && !$request->has('hard_mode_score') && !$request->has('asian_mode_score') && !$request->has('beat') && !$request->has('beats')) {
             return response()->json([
                 'errors' => [
                     'score' => [__('api.validation.score_required')]
@@ -104,8 +117,23 @@ class UserScoreController extends Controller
 
         $userId = $request->user()->id;
         $beatmapId = $request->beatmap_id;
-        $newHardScore = $request->hard_mode_score;
-        $isNormalModePassed = (bool) ($request->is_normal_mode_passed ?? false);
+
+        // X định Mode hiện tại
+        $isEasyMode = $request->boolean('is_easy_mode') || $request->input('mode') === 'easy';
+        $isHardMode = $request->boolean('is_hard_mode') || $request->boolean('is_rage_mode') || $request->input('mode') === 'hard' || $request->input('mode') === 'rage';
+        $isAsianMode = $request->boolean('is_asian_mode') || $request->input('mode') === 'asian';
+        $isNormalMode = !$isEasyMode && !$isHardMode && !$isAsianMode;
+
+        // Đọc giá trị điểm số từng mode
+        $inputEasyScore = $request->has('easy_mode_score') ? (int) $request->easy_mode_score : ($isEasyMode && $request->has('score') ? (int) $request->score : null);
+        $inputHardScore = $request->has('hard_mode_score') ? (int) $request->hard_mode_score : ($isHardMode && $request->has('score') ? (int) $request->score : null);
+        $inputAsianScore = $request->has('asian_mode_score') ? (int) $request->asian_mode_score : ($isAsianMode && $request->has('score') ? (int) $request->score : null);
+        $inputNormalScore = $request->has('score') ? (int) $request->score : null;
+
+        $isEasyPassed = (bool) ($request->is_easy_mode_passed ?? false);
+        $isNormalPassed = (bool) ($request->is_normal_mode_passed ?? false);
+        $isHardPassed = (bool) ($request->is_hard_mode_passed ?? false);
+        $isAsianPassed = (bool) ($request->is_asian_mode_passed ?? false);
 
         // 2. Tìm điểm số kỷ lục hiện tại của User trên Beatmap này (nếu có)
         $existingScore = UserScore::where('user_id', $userId)
@@ -128,43 +156,75 @@ class UserScoreController extends Controller
                 $theoreticalMaxScore = 209 + ($countOnes - 19) * 21;
             }
 
-            // Giới hạn điểm số tối đa cho phép (Không cộng thêm sai số)
+            // Giới hạn điểm số tối đa cho phép
             $maxAllowedScore = $theoreticalMaxScore;
 
-            // Nếu người chơi truyền score lên, kiểm tra xem score có vượt quá Max Allowed Score không
-            if ($request->has('score') && $request->score !== null) {
-                $submittedScore = (int) $request->score;
-                if ($submittedScore > $maxAllowedScore) {
-                    return response()->json([
-                        'message' => __('api.score.verification_failed') ?? 'Xác minh điểm số thất bại.',
-                        'errors'  => [
-                            'score' => [
-                                __('api.validation.score_exceeds_max', [
-                                    'received'  => $submittedScore,
-                                    'max_score' => $maxAllowedScore
-                                ]) ?? "Điểm số gửi lên ({$submittedScore}) vượt quá giới hạn tối đa cho phép từ mảng beat ({$maxAllowedScore})."
-                            ]
+            // Lấy điểm submitted của mode tương ứng để kiểm tra
+            $submittedCheckScore = null;
+            if ($isEasyMode && $inputEasyScore !== null) $submittedCheckScore = $inputEasyScore;
+            elseif ($isHardMode && $inputHardScore !== null) $submittedCheckScore = $inputHardScore;
+            elseif ($isAsianMode && $inputAsianScore !== null) $submittedCheckScore = $inputAsianScore;
+            elseif ($inputNormalScore !== null) $submittedCheckScore = $inputNormalScore;
+
+            if ($submittedCheckScore !== null && $submittedCheckScore > $maxAllowedScore) {
+                return response()->json([
+                    'message' => __('api.score.verification_failed') ?? 'Xác minh điểm số thất bại.',
+                    'errors'  => [
+                        'score' => [
+                            __('api.validation.score_exceeds_max', [
+                                'received'  => $submittedCheckScore,
+                                'max_score' => $maxAllowedScore
+                            ]) ?? "Điểm số gửi lên ({$submittedCheckScore}) vượt quá giới hạn tối đa cho phép từ mảng beat ({$maxAllowedScore})."
                         ]
-                    ], 422);
-                }
-                $newScore = $submittedScore;
-            } else {
-                // Nếu client chỉ gửi mảng beat mà không truyền score -> Server tự tính điểm chuẩn 100% Perfect
-                $newScore = $theoreticalMaxScore;
+                    ]
+                ], 422);
             }
-        } else {
-            // Tương thích ngược: Nếu client không gửi mảng beat
-            $newScore = (int) ($request->score ?? 0);
+
+            // Nếu client chỉ gửi mảng beat mà không truyền score -> Tự động dùng điểm tính từ mảng beat
+            if ($isEasyMode && $inputEasyScore === null) $inputEasyScore = $theoreticalMaxScore;
+            elseif ($isHardMode && $inputHardScore === null) $inputHardScore = $theoreticalMaxScore;
+            elseif ($isAsianMode && $inputAsianScore === null) $inputAsianScore = $theoreticalMaxScore;
+            elseif ($isNormalMode && $inputNormalScore === null) $inputNormalScore = $theoreticalMaxScore;
         }
 
         // 4. Kiểm tra điểm số gửi lên so với High Record hiện tại
         if ($existingScore) {
-            $isBetterNormalScore = $newScore > $existingScore->score;
-            $isBetterHardScore = ($newHardScore !== null && $newHardScore > $existingScore->hard_mode_score);
-            $isNewPass = ($isNormalModePassed && !$existingScore->is_normal_mode_passed);
+            $updatedData = [];
 
-            // Nếu không đạt/không vượt qua kỷ lục ở bất kỳ chỉ số nào -> Bỏ qua không cập nhật, trả về kỷ lục cũ ngay
-            if (!$isBetterNormalScore && !$isBetterHardScore && !$isNewPass) {
+            // Easy Mode
+            if ($inputEasyScore !== null && $inputEasyScore > $existingScore->easy_mode_score) {
+                $updatedData['easy_mode_score'] = $inputEasyScore;
+            }
+            if ($isEasyPassed && !$existingScore->is_easy_mode_passed) {
+                $updatedData['is_easy_mode_passed'] = true;
+            }
+
+            // Normal Mode (chỉ cập nhật nếu đợt submit này thuộc Normal mode hoặc có score cao hơn)
+            if ($inputNormalScore !== null && $isNormalMode && $inputNormalScore > $existingScore->score) {
+                $updatedData['score'] = $inputNormalScore;
+            }
+            if ($isNormalPassed && !$existingScore->is_normal_mode_passed) {
+                $updatedData['is_normal_mode_passed'] = true;
+            }
+
+            // Hard Mode
+            if ($inputHardScore !== null && $inputHardScore > $existingScore->hard_mode_score) {
+                $updatedData['hard_mode_score'] = $inputHardScore;
+            }
+            if ($isHardPassed && !$existingScore->is_hard_mode_passed) {
+                $updatedData['is_hard_mode_passed'] = true;
+            }
+
+            // Asian Mode
+            if ($inputAsianScore !== null && $inputAsianScore > $existingScore->asian_mode_score) {
+                $updatedData['asian_mode_score'] = $inputAsianScore;
+            }
+            if ($isAsianPassed && !$existingScore->is_asian_mode_passed) {
+                $updatedData['is_asian_mode_passed'] = true;
+            }
+
+            // Nếu không có bất kỳ chỉ số nào thay đổi -> Trả về kết quả hiện tại
+            if (empty($updatedData)) {
                 $existingScore->load(['user', 'beatmap']);
                 return (new UserScoreResource($existingScore))
                     ->additional(['message' => __('api.score.not_beaten') ?? 'Điểm số này chưa vượt qua kỷ lục hiện tại của bạn.'])
@@ -172,30 +232,23 @@ class UserScoreController extends Controller
                     ->setStatusCode(200);
             }
 
-            // Nếu đạt kỷ lục mới -> Cập nhật các chỉ số tương ứng
-            $updatedData = [];
-            if ($isBetterNormalScore) {
-                $updatedData['score'] = $newScore;
-            }
-            if ($isNewPass) {
-                $updatedData['is_normal_mode_passed'] = true;
-            }
-            if ($isBetterHardScore) {
-                $updatedData['hard_mode_score'] = $newHardScore;
-            }
-
             $existingScore->update($updatedData);
             $scoreRecord = $existingScore;
             $message = __('api.score.new_record') ?? 'Chúc mừng! Bạn đã phá kỷ lục cá nhân mới.';
             $statusCode = 200;
         } else {
-            // Nếu chưa từng chơi bài này -> Tạo mới bản ghi điểm số
+            // Nếu chưa từng chơi bài này -> Tạo mới bản ghi điểm số với 4 luồng độc lập
             $scoreRecord = UserScore::create([
                 'user_id'               => $userId,
                 'beatmap_id'            => $beatmapId,
-                'score'                 => $newScore,
-                'hard_mode_score'       => $newHardScore ?? 0,
-                'is_normal_mode_passed' => $isNormalModePassed,
+                'easy_mode_score'       => $inputEasyScore ?? 0,
+                'is_easy_mode_passed'   => $isEasyPassed,
+                'score'                 => $isNormalMode ? ($inputNormalScore ?? 0) : 0,
+                'is_normal_mode_passed' => $isNormalPassed,
+                'hard_mode_score'       => $inputHardScore ?? 0,
+                'is_hard_mode_passed'   => $isHardPassed,
+                'asian_mode_score'      => $inputAsianScore ?? 0,
+                'is_asian_mode_passed'  => $isAsianPassed,
             ]);
 
             $message = __('api.score.saved') ?? 'Đã lưu điểm số thành công.';
@@ -219,13 +272,19 @@ class UserScoreController extends Controller
         $query = UserScore::where('beatmap_id', $beatmapId)
             ->with(['user', 'beatmap']);
 
-        if ($request->query('mode') === 'hard') {
+        $mode = strtolower((string) $request->query('mode', 'normal'));
+
+        if ($mode === 'easy') {
+            $query->orderByDesc('easy_mode_score');
+        } elseif ($mode === 'hard' || $mode === 'rage') {
             $query->orderByDesc('hard_mode_score');
+        } elseif ($mode === 'asian') {
+            $query->orderByDesc('asian_mode_score');
         } else {
             $query->orderByDesc('score');
         }
 
-        $scores = $query->orderBy('updated_at')     // Thay vì created_at, ta dùng updated_at vì mốc thời gian kỷ lục mới có thể đã bị thay đổi ở hàm store
+        $scores = $query->orderBy('updated_at')     // Mốc thời gian kỷ lục mới
             ->limit(10)
             ->get();
 

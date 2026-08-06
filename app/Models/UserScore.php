@@ -15,16 +15,26 @@ class UserScore extends Model
     protected $fillable = [
         'user_id',
         'beatmap_id',
+        'easy_mode_score',
+        'is_easy_mode_passed',
         'score',
+        'is_normal_mode_passed',
         'hard_mode_score',
-        'is_normal_mode_passed'
+        'is_hard_mode_passed',
+        'asian_mode_score',
+        'is_asian_mode_passed'
     ];
 
     protected $casts = [
-        'beatmap_id' => 'integer',
-        'score'      => 'integer',
-        'hard_mode_score' => 'integer',
+        'beatmap_id'            => 'integer',
+        'easy_mode_score'       => 'integer',
+        'is_easy_mode_passed'   => 'boolean',
+        'score'                 => 'integer',
         'is_normal_mode_passed' => 'boolean',
+        'hard_mode_score'       => 'integer',
+        'is_hard_mode_passed'   => 'boolean',
+        'asian_mode_score'      => 'integer',
+        'is_asian_mode_passed'  => 'boolean',
     ];
 
     /**

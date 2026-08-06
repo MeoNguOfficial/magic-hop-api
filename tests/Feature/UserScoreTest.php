@@ -179,23 +179,32 @@ class UserScoreTest extends TestCase
         ]);
         $user2->setting()->create();
 
-        // User 1 has normal: 100, hard: 50
+        // User 1 has easy: 200, normal: 100, hard: 50, asian: 10
         UserScore::create([
             'user_id' => $this->user->id,
             'beatmap_id' => $this->beatmap->id,
+            'easy_mode_score' => 200,
             'score' => 100,
             'hard_mode_score' => 50,
+            'asian_mode_score' => 10,
             'is_normal_mode_passed' => true,
         ]);
 
-        // User 2 has normal: 50, hard: 150
+        // User 2 has easy: 100, normal: 50, hard: 150, asian: 300
         UserScore::create([
             'user_id' => $user2->id,
             'beatmap_id' => $this->beatmap->id,
+            'easy_mode_score' => 100,
             'score' => 50,
             'hard_mode_score' => 150,
+            'asian_mode_score' => 300,
             'is_normal_mode_passed' => true,
         ]);
+
+        // Test easy mode leaderboard -> User 1 should be first
+        $response = $this->withToken($this->token)->getJson("/api/beatmaps/{$this->beatmap->id}/leaderboard?mode=easy");
+        $response->assertStatus(200);
+        $this->assertEquals($this->user->id, $response->json('data.0.user.id'));
 
         // Test normal mode leaderboard (default) -> User 1 should be first
         $response = $this->withToken($this->token)->getJson("/api/beatmaps/{$this->beatmap->id}/leaderboard");
@@ -208,6 +217,11 @@ class UserScoreTest extends TestCase
         $response->assertStatus(200);
         $this->assertEquals($user2->id, $response->json('data.0.user.id'));
         $this->assertEquals($this->user->id, $response->json('data.1.user.id'));
+
+        // Test asian mode leaderboard -> User 2 should be first
+        $response = $this->withToken($this->token)->getJson("/api/beatmaps/{$this->beatmap->id}/leaderboard?mode=asian");
+        $response->assertStatus(200);
+        $this->assertEquals($user2->id, $response->json('data.0.user.id'));
     }
 
     public function test_score_verification_accepts_valid_score_within_beat_limit()

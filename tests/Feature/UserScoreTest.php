@@ -212,34 +212,34 @@ class UserScoreTest extends TestCase
 
     public function test_score_verification_accepts_valid_score_within_beat_limit()
     {
-        // 5 ones in beat array -> max allowed score = 5 * 21 = 105
+        // 5 ones in beat array -> theoreticalMaxScore = (5 * 8) / 2 = 20, max allowed score = 20
         $response = $this->withToken($this->token)->postJson('/api/scores', [
             'beatmap_id' => $this->beatmap->id,
-            'score' => 105,
+            'score' => 20,
             'beat' => [1, 1, 1, 1, 1],
         ]);
 
         $response->assertStatus(201);
-        $response->assertJsonPath('data.score', 105);
+        $response->assertJsonPath('data.score', 20);
     }
 
-    public function test_score_verification_accepts_endless_mode_score_with_multiplier()
+    public function test_score_verification_calculates_score_without_endless_round_multiplier()
     {
-        // 4 ones in beat array, round_endless = 3 -> max allowed score = 4 * 21 * 3 = 252
+        // 4 ones in beat array -> theoreticalMaxScore = (4 * 7) / 2 = 14, max allowed score = 14 (round_endless ignored)
         $response = $this->withToken($this->token)->postJson('/api/scores', [
             'beatmap_id' => $this->beatmap->id,
-            'score' => 250,
+            'score' => 14,
             'beat' => [1, 1, 1, 1],
             'round_endless' => 3,
         ]);
 
         $response->assertStatus(201);
-        $response->assertJsonPath('data.score', 250);
+        $response->assertJsonPath('data.score', 14);
     }
 
     public function test_score_verification_rejects_score_exceeding_beat_limit()
     {
-        // 2 ones in beat array -> max allowed score = 2 * 21 = 42. Sending score = 100 should fail.
+        // 2 ones in beat array -> theoreticalMaxScore = (2 * 5) / 2 = 5, max allowed score = 5. Sending score = 100 should fail.
         $response = $this->withToken($this->token)->postJson('/api/scores', [
             'beatmap_id' => $this->beatmap->id,
             'score' => 100,
@@ -252,13 +252,13 @@ class UserScoreTest extends TestCase
 
     public function test_score_verification_auto_calculates_score_when_score_omitted()
     {
-        // 3 ones in beat array, no score provided -> calculated score = 3 * 21 = 63
+        // 3 ones in beat array, no score provided -> calculated score = (3 * 6) / 2 = 9
         $response = $this->withToken($this->token)->postJson('/api/scores', [
             'beatmap_id' => $this->beatmap->id,
             'beats' => [1, 1, 1],
         ]);
 
         $response->assertStatus(201);
-        $response->assertJsonPath('data.score', 63);
+        $response->assertJsonPath('data.score', 9);
     }
 }

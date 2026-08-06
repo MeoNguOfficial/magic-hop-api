@@ -114,24 +114,22 @@ class UserScoreController extends Controller
 
         // 3. Cơ chế xác minh điểm số (Score Verification) & Tính toán điểm số mới
         $beatInput = $request->input('beat') ?? $request->input('beats');
-        $roundEndless = max(1, (int) (
-            $request->input('round_endless')
-            ?? $request->input('endless_round')
-            ?? $request->input('round')
-            ?? $request->input('round_count')
-            ?? $request->input('endless_count')
-            ?? 1
-        ));
 
         if ($beatInput !== null && is_array($beatInput)) {
-            // Đếm số phần tử nhịp đạt chuẩn 1 trong mảng beat
+            // Đếm số phần tử nhịp đạt chuẩn 1 trong mảng beat (số tiles đã chạm vào)
             $countOnes = count(array_filter($beatInput, function ($val) {
                 return $val == 1 || $val === '1' || $val === true;
             }));
 
-            // Mỗi 1 beat chuẩn mang giá trị 21 điểm (chuỗi Perfect Combo tối đa 21đ/beat)
-            // Trong chế độ Endless, nhân thêm với hệ số số vòng Endless (round_endless)
-            $maxAllowedScore = $countOnes * 21 * $roundEndless;
+            // Tính điểm tối đa lý thuyết theo logic frontend (Perfect Combo: hit 1 = 2đ, hit 2 = 3đ... hit 20 trở đi = 21đ)
+            if ($countOnes < 20) {
+                $theoreticalMaxScore = (int) (($countOnes * ($countOnes + 3)) / 2);
+            } else {
+                $theoreticalMaxScore = 209 + ($countOnes - 19) * 21;
+            }
+
+            // Giới hạn điểm số tối đa cho phép (Không cộng thêm sai số)
+            $maxAllowedScore = $theoreticalMaxScore;
 
             // Nếu người chơi truyền score lên, kiểm tra xem score có vượt quá Max Allowed Score không
             if ($request->has('score') && $request->score !== null) {
@@ -151,8 +149,8 @@ class UserScoreController extends Controller
                 }
                 $newScore = $submittedScore;
             } else {
-                // Nếu client chỉ gửi mảng beat mà không truyền score -> Server tự tính điểm chuẩn
-                $newScore = $maxAllowedScore;
+                // Nếu client chỉ gửi mảng beat mà không truyền score -> Server tự tính điểm chuẩn 100% Perfect
+                $newScore = $theoreticalMaxScore;
             }
         } else {
             // Tương thích ngược: Nếu client không gửi mảng beat

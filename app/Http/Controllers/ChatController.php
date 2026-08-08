@@ -172,7 +172,7 @@ class ChatController extends Controller
         $room = ChatRoom::with(['user', 'assignee', 'messages.sender'])->findOrFail($roomId);
         $currentUser = auth()->user();
 
-        if (!$currentUser->is_admin && $room->user_id !== $currentUser->id) {
+        if (!$currentUser->is_admin && (string) $room->user_id !== (string) $currentUser->id) {
             return response()->json(['message' => 'Bạn không có quyền xem nội dung này.'], 403);
         }
 

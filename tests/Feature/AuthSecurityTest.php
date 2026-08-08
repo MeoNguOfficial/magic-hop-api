@@ -14,6 +14,8 @@ class AuthSecurityTest extends TestCase
 {
     use DatabaseTransactions; // Chạy trực tiếp trên DB hiện tại, tự động rollback dữ liệu khi test xong
 
+    private string $defaultTestPassword = 'TestSecretPass123!';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -64,19 +66,22 @@ class AuthSecurityTest extends TestCase
                 'id'         => (string) \Illuminate\Support\Str::ulid(),
                 'username'   => 'playerone',
                 'email'      => 'playerone@gmail.com',
-                'password'   => Hash::make('111111'),
+                'password'   => Hash::make($this->defaultTestPassword),
                 'is_admin'   => false, // Đảm bảo đây là tài khoản thường
                 'is_actived' => true,
             ]);
             $player->setting()->create();
         } else {
-            $player->update(['is_admin' => false]);
+            $player->update([
+                'password' => Hash::make($this->defaultTestPassword),
+                'is_admin' => false
+            ]);
         }
 
         // 2. Giả lập luồng đăng nhập qua API để lấy Token
         $response = $this->postJson('/api/login', [
             'username' => 'playerone',
-            'password' => '111111'
+            'password' => $this->defaultTestPassword
         ]);
 
         // Đăng nhập thành công trả về 200
@@ -97,7 +102,7 @@ class AuthSecurityTest extends TestCase
         $payload = [
             'username'       => 'hacker_mass',
             'email'          => 'hacker_mass@magichop.com',
-            'password'       => 'hacker123',
+            'password'       => $this->defaultTestPassword,
             'is_admin'       => true,
             'is_banned'      => true,
             'is_locked'      => true,
@@ -149,7 +154,7 @@ class AuthSecurityTest extends TestCase
         $payload = [
             'username' => $uniqueUser,
             'email'    => $uniqueUser . '@gmail.com',
-            'password' => 'password123',
+            'password' => $this->defaultTestPassword,
         ];
 
         $response = $this->postJson('/api/register', $payload);
@@ -164,7 +169,7 @@ class AuthSecurityTest extends TestCase
     {
         $response = $this->postJson('/api/login', [
             'username' => 'non_existent_user_9999',
-            'password' => 'anypassword'
+            'password' => $this->defaultTestPassword
         ]);
         $response->assertStatus(401);
     }
@@ -175,7 +180,7 @@ class AuthSecurityTest extends TestCase
             'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'expired_ban_user',
             'email' => 'expired_ban@gmail.com',
-            'password' => Hash::make('111111'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_banned' => true,
             'banned_until' => Carbon::now()->subMinutes(5),
             'is_actived' => true
@@ -183,7 +188,7 @@ class AuthSecurityTest extends TestCase
 
         $response = $this->postJson('/api/login', [
             'username' => 'expired_ban_user',
-            'password' => '111111'
+            'password' => $this->defaultTestPassword
         ]);
 
         $response->assertStatus(200);
@@ -196,7 +201,7 @@ class AuthSecurityTest extends TestCase
             'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'active_ban_user',
             'email' => 'active_ban@gmail.com',
-            'password' => Hash::make('111111'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_banned' => true,
             'banned_until' => Carbon::now()->addHours(2),
             'banned_reason' => 'Hack Speed Game',
@@ -205,7 +210,7 @@ class AuthSecurityTest extends TestCase
 
         $response = $this->postJson('/api/login', [
             'username' => 'active_ban_user',
-            'password' => '111111'
+            'password' => $this->defaultTestPassword
         ]);
 
         $response->assertStatus(403)
@@ -218,14 +223,14 @@ class AuthSecurityTest extends TestCase
             'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'brute_force_11',
             'email' => 'brute11@gmail.com',
-            'password' => Hash::make('correct_password'),
+            'password' => Hash::make($this->defaultTestPassword),
             'login_attempts' => 10,
             'is_actived' => true
         ]);
 
         $response = $this->postJson('/api/login', [
             'username' => 'brute_force_11',
-            'password' => 'wrong_password'
+            'password' => 'invalid_attempt_password'
         ]);
 
         $response->assertStatus(403);
@@ -249,18 +254,20 @@ class AuthSecurityTest extends TestCase
     public function test_user_cannot_delete_other_user(): void
     {
         $user1 = User::create([
+            'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'user_one_' . time(),
             'email' => 'user_one_' . time() . '@magichop.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_admin' => false,
             'is_actived' => true,
         ]);
         $user1->setting()->create();
 
         $user2 = User::create([
+            'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'user_two_' . time(),
             'email' => 'user_two_' . time() . '@magichop.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_admin' => false,
             'is_actived' => true,
         ]);
@@ -275,9 +282,10 @@ class AuthSecurityTest extends TestCase
     public function test_user_can_delete_themselves(): void
     {
         $user = User::create([
+            'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'user_self_' . time(),
             'email' => 'user_self_' . time() . '@magichop.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_admin' => false,
             'is_actived' => true,
         ]);
@@ -295,18 +303,20 @@ class AuthSecurityTest extends TestCase
     public function test_admin_can_delete_any_user(): void
     {
         $admin = User::create([
+            'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'admin_' . time(),
             'email' => 'admin_' . time() . '@magichop.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_admin' => true,
             'is_actived' => true,
         ]);
         $admin->setting()->create();
 
         $user = User::create([
+            'id' => (string) \Illuminate\Support\Str::ulid(),
             'username' => 'user_target_' . time(),
             'email' => 'user_target_' . time() . '@magichop.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make($this->defaultTestPassword),
             'is_admin' => false,
             'is_actived' => true,
         ]);

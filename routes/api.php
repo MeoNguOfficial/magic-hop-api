@@ -53,11 +53,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users/{id}', [UserController::class, 'show']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 
-    // Chỉ Admin mới được tạo / cập nhật / xóa tài khoản người dùng
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+
+    // Chỉ Admin mới được tạo tài khoản người dùng mới trực tiếp
     Route::middleware('admin')->group(function () {
         Route::post('/users', [UserController::class, 'store']);
-        Route::put('/users/{id}', [UserController::class, 'update']);
-        Route::delete('/users/{id}', [UserController::class, 'destroy']);
     });
 
 

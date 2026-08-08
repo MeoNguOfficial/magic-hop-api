@@ -184,7 +184,7 @@ class UserController extends Controller
         $isAdmin = $currentUser && $currentUser->is_admin;
 
         // 1. Phân quyền: User thường chỉ được sửa chính mình, Admin sửa được bất cứ ai
-        if (!$isAdmin && $currentUser->id !== $user->id) {
+        if (!$isAdmin && (string) $currentUser->id !== (string) $user->id) {
             return response()->json(['message' => __('api.auth.forbidden')], 403);
         }
 
@@ -288,7 +288,7 @@ class UserController extends Controller
         $isAdmin = $currentUser && $currentUser->is_admin;
 
         // Phân quyền: User thường chỉ được xóa chính mình, Admin xóa được bất cứ ai
-        if (!$isAdmin && $currentUser->id !== $user->id) {
+        if (!$isAdmin && (string) $currentUser->id !== (string) $user->id) {
             return response()->json(['message' => __('api.auth.forbidden')], 403);
         }
 

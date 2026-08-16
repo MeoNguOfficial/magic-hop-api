@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -275,13 +275,17 @@ class UserScoreController extends Controller
         $mode = strtolower((string) $request->query('mode', 'normal'));
 
         if ($mode === 'easy') {
-            $query->orderByDesc('easy_mode_score');
+            $query->where('easy_mode_score', '>', 0)
+                  ->orderByDesc('easy_mode_score');
         } elseif ($mode === 'hard' || $mode === 'rage') {
-            $query->orderByDesc('hard_mode_score');
+            $query->where('hard_mode_score', '>', 0)
+                  ->orderByDesc('hard_mode_score');
         } elseif ($mode === 'asian') {
-            $query->orderByDesc('asian_mode_score');
+            $query->where('asian_mode_score', '>', 0)
+                  ->orderByDesc('asian_mode_score');
         } else {
-            $query->orderByDesc('score');
+            $query->where('score', '>', 0)
+                  ->orderByDesc('score');
         }
 
         $scores = $query->orderBy('updated_at')     // Mốc thời gian kỷ lục mới

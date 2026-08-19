@@ -175,7 +175,7 @@ class UserController extends Controller
     /**
      * Cập nhật thông tin người dùng (Hỗ trợ cả Admin và User thường)
      * - User thường: Chỉ cập nhật thông tin cá nhân cơ bản và đổi mật khẩu (yêu cầu xác thực mật khẩu cũ)
-     * - Admin: Có quyền cập nhật toàn bộ thông tin bao gồm trạng thái khóa, ban, phân quyền
+     * - Admin: Có quyền cập nhật toàn bộ thông tin bao gồm trạng thái khóa, ban, phân quyền, etc...
      */
     public function update(Request $request, string $id)
     {

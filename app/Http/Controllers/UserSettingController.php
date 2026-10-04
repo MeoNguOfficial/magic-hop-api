@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Http\Resources\UserSettingResource;
+use App\Http\Requests\UpdateUserSettingRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class UserSettingController extends Controller
 {
-    public function update(Request $request, string $userId)
+    public function update(UpdateUserSettingRequest $request, string $userId)
     {
         $user = User::findOrFail($userId);
         $setting = $user->setting;
@@ -18,9 +18,11 @@ class UserSettingController extends Controller
             return response()->json(['message' => 'Settings not found'], 404);
         }
 
-        // ... (Giữ nguyên phần Validator lớn ở câu trả lời trước của bạn vào đây) ...
+        // BẢO MẬT 1: Ủy quyền (Authorization) thông qua UserSettingPolicy (Chặn IDOR)
+        \Illuminate\Support\Facades\Gate::authorize('update', $setting);
 
-        $setting->update($request->all());
+        // BẢO MẬT 2: Cập nhật an toàn với dữ liệu đã được validate từ UpdateUserSettingRequest (Chặn Mass Assignment)
+        $setting->update($request->validated());
 
         return (new UserSettingResource($setting))->additional(['message' => 'Settings updated successfully']);
     }

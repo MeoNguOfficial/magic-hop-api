@@ -21,4 +21,26 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // Bắt lỗi khi mất kết nối Database hoặc sai thông tin đăng nhập DB (Custom JSON)
+        $exceptions->render(function (\PDOException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Hệ thống đang bảo trì hoặc máy chủ dữ liệu (Database) không phản hồi. Vui lòng thử lại sau.',
+                    'error_code' => 'DATABASE_CONNECTION_ERROR'
+                ], 500);
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Database\QueryException $e, Request $request) {
+            // Kiểm tra các mã lỗi liên quan đến kết nối (Ví dụ: Connection refused, Access denied)
+            if (str_contains($e->getMessage(), 'SQLSTATE[HY000]') || str_contains($e->getMessage(), 'Connection refused')) {
+                if ($request->is('api/*') || $request->expectsJson()) {
+                    return response()->json([
+                        'message' => 'Lỗi kết nối cơ sở dữ liệu. Dịch vụ tạm thời gián đoạn.',
+                        'error_code' => 'DATABASE_CONNECTION_ERROR'
+                    ], 500);
+                }
+            }
+        });
     })->create();

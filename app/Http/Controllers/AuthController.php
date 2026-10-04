@@ -110,8 +110,10 @@ class AuthController extends Controller
             ->orWhere('email', $loginValue)
             ->first();
 
-        // Nếu không tìm thấy user, trả về lỗi luôn (tránh xử lý brute force cho user không tồn tại)
+        // Nếu không tìm thấy user, trả về lỗi luôn (Thêm delay để chống Brute-Force & Timing Attack)
         if (!$user) {
+            // Tạm dừng 1-2 giây để fake thời gian xử lý (bằng với lúc đăng nhập đúng)
+            usleep(rand(1000000, 2000000)); 
             return response()->json(['message' => __('api.auth.failed')], 401);
         }
 
@@ -126,6 +128,8 @@ class AuthController extends Controller
 
         // [TÍCH HỢP TỪ BẢN MỚI]: Gửi kèm đầy đủ thông tin thời gian cấm và lý do cấm về Client
         if ($user->is_banned) {
+            // Anti brute-force & timing attack delay
+            usleep(rand(1000000, 2000000));
             return response()->json([
                 'message'      => __('api.auth.banned'),
                 'is_banned'    => true,
@@ -147,6 +151,10 @@ class AuthController extends Controller
         // Kiểm tra xem tài khoản có đang bị khóa tạm thời không
         if ($user->is_locked && $user->locked_until && Carbon::now()->lessThan($user->locked_until)) {
             $minutesLeft = Carbon::now()->diffInMinutes($user->locked_until) + 1;
+            
+            // Anti brute-force & timing attack delay
+            usleep(rand(1000000, 2000000));
+            
             return response()->json([
                 'message' => __('api.auth.locked_temp', ['minutes' => $minutesLeft])
             ], 403);
@@ -154,6 +162,9 @@ class AuthController extends Controller
 
         // 5. Kiểm tra xem tài khoản có bị khóa vĩnh viễn không (is_actived = false và login_attempts >= 11)
         if (!$user->is_actived && $user->login_attempts >= 11) {
+            // Anti brute-force & timing attack delay
+            usleep(rand(1000000, 2000000));
+            
             return response()->json([
                 'message' => __('api.auth.locked_permanently')
             ], 403);
@@ -161,6 +172,9 @@ class AuthController extends Controller
 
         // 6. Kiểm tra trạng thái kích hoạt thông thường (Ví dụ: chưa kích hoạt đăng ký)
         if (!$user->is_actived && $user->login_attempts < 5) {
+            // Anti brute-force & timing attack delay
+            usleep(rand(1000000, 2000000));
+            
             return response()->json(['message' => __('api.auth.inactive')], 403);
         }
 
@@ -206,6 +220,10 @@ class AuthController extends Controller
 
             // Trả về lỗi sai mật khẩu thông thường (ở các lần thứ 1, 2, 3, 4) kèm thông báo số lần còn lại
             $remainingAttempts = 5 - $attempts;
+            
+            // Anti brute-force & timing attack delay
+            usleep(rand(1000000, 2000000));
+            
             return response()->json([
                 'message' => __('api.auth.wrong_password_attempts_left', ['attempts' => $remainingAttempts])
             ], 401);

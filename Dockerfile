@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y \
     nginx
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd opcache
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+# Tách riêng lệnh cài opcache, nếu image đã có sẵn thì bỏ qua lỗi
+RUN docker-php-ext-install opcache || docker-php-ext-enable opcache
 
 # Bật OPcache siêu tốc (Cách 3 - Mất 5 giây nhưng hiệu năng x10)
 RUN docker-php-ext-enable opcache && \

@@ -17,6 +17,25 @@ use Illuminate\Support\Facades\Route;
 | - Không yêu cầu đính kèm mã bảo mật Bearer Token.
 */
 
+// --- Kiểm tra trạng thái máy chủ & Database (Health check) ---
+Route::get('/health', function () {
+    try {
+        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        return response()->json([
+            'status'          => 'healthy',
+            'database_status' => 'online',
+            'message'         => 'Server and Database are operational',
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status'          => 'degraded',
+            'database_status' => 'offline',
+            'message'         => 'Database is offline',
+            'error_code'      => 'DATABASE_CONNECTION_ERROR',
+        ], 503);
+    }
+});
+
 // --- Quản lý Tài khoản Công Khai & Xác thực kích hoạt ---
 Route::post('/register', [AuthController::class, 'register']);
 // Route::post('/activate-account', [AuthController::class, 'activateAccount']); // Kích hoạt tài khoản bằng mã OTP

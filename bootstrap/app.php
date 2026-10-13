@@ -19,28 +19,47 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => true, // Luôn ưu tiên trả về JSON cho toàn bộ API & Web service
         );
 
-        // Bắt lỗi khi mất kết nối Database hoặc sai thông tin đăng nhập DB (Custom JSON)
-        $exceptions->render(function (\PDOException $e, Request $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json([
-                    'message' => 'Hệ thống đang bảo trì hoặc máy chủ dữ liệu (Database) không phản hồi. Vui lòng thử lại sau.',
-                    'error_code' => 'DATABASE_CONNECTION_ERROR'
-                ], 500);
+        $dbOfflineResponse = function () {
+            return response()->json([
+                'status'          => 'error',
+                'message'         => 'Database is offline. Hệ thống đang bảo trì hoặc máy chủ dữ liệu không phản hồi. Vui lòng thử lại sau.',
+                'error_code'      => 'DATABASE_CONNECTION_ERROR',
+                'database_status' => 'offline',
+            ], 500);
+        };
+
+        // 1. Bắt lỗi mất kết nối từ PDOException (Timeout, sai thông tin đăng nhập, host offline)
+        $exceptions->render(function (\PDOException $e, Request $request) use ($dbOfflineResponse) {
+            return $dbOfflineResponse();
+        });
+
+        // 2. Bắt lỗi truy vấn khi kết nối DB bị đứt gãy
+        $exceptions->render(function (\Illuminate\Database\QueryException $e, Request $request) use ($dbOfflineResponse) {
+            $msg = $e->getMessage();
+            $isConnectionError = $e->getPrevious() instanceof \PDOException
+                || str_contains($msg, 'SQLSTATE[HY000]')
+                || str_contains($msg, 'SQLSTATE[08006]')
+                || str_contains($msg, 'SQLSTATE[08001]')
+                || str_contains($msg, 'Connection refused')
+                || str_contains($msg, 'Connection timed out')
+                || str_contains($msg, 'A connection attempt failed')
+                || str_contains($msg, 'Access denied')
+                || str_contains($msg, 'No connection could be made')
+                || str_contains($msg, 'getaddrinfo failed');
+
+            if ($isConnectionError) {
+                return $dbOfflineResponse();
             }
         });
 
-        $exceptions->render(function (\Illuminate\Database\QueryException $e, Request $request) {
-            // Kiểm tra các mã lỗi liên quan đến kết nối (Ví dụ: Connection refused, Access denied)
-            if (str_contains($e->getMessage(), 'SQLSTATE[HY000]') || str_contains($e->getMessage(), 'Connection refused')) {
-                if ($request->is('api/*') || $request->expectsJson()) {
-                    return response()->json([
-                        'message' => 'Lỗi kết nối cơ sở dữ liệu. Dịch vụ tạm thời gián đoạn.',
-                        'error_code' => 'DATABASE_CONNECTION_ERROR'
-                    ], 500);
-                }
+        // 3. Bắt lỗi FatalError nếu PHP chạm timeout kết nối DB
+        $exceptions->render(function (\Symfony\Component\ErrorHandler\Error\FatalError $e, Request $request) use ($dbOfflineResponse) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'Connector.php') || (str_contains($msg, 'execution time') && str_contains($msg, 'Database'))) {
+                return $dbOfflineResponse();
             }
         });
     })->create();

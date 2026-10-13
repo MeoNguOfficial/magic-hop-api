@@ -11,12 +11,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    $dbConnected = false;
+    try {
+        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        $dbConnected = true;
+    } catch (\Throwable $e) {
+        $dbConnected = false;
+    }
+
     return response()->json([
-        'project'     => 'MAGIC HOP - GAME API',
-        'status'      => 'Healthy',
-        'version'     => '1.0.0',
-        'environment' => app()->environment(),
-        'timezone'    => config('app.timezone'),
-        'timestamp'   => now()->toIso8601String(),
+        'project'         => 'MAGIC HOP - GAME API',
+        'status'          => $dbConnected ? 'Healthy' : 'Degraded',
+        'database_status' => $dbConnected ? 'online' : 'offline',
+        'version'         => '1.0.0',
+        'environment'     => app()->environment(),
+        'timezone'        => config('app.timezone'),
+        'timestamp'       => now()->toIso8601String(),
     ]);
 });

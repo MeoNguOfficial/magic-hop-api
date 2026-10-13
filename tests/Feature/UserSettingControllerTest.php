@@ -77,13 +77,19 @@ class UserSettingControllerTest extends TestCase
         \Illuminate\Support\Facades\DB::purge('mysql');
         \Illuminate\Support\Facades\DB::purge('sqlite');
 
-        // Gọi 1 API công khai có tương tác với DB (giả sử có Route get /api/beatmaps)
-        $response = $this->getJson('/api/beatmaps'); 
+        try {
+            // Gọi 1 API công khai có tương tác với DB (giả sử có Route get /api/beatmaps)
+            $response = $this->getJson('/api/beatmaps'); 
 
-        // Kiểm tra xem mã lỗi có đúng 500 và trả về cấu trúc JSON custom hay không
-        $response->assertStatus(500);
-        $response->assertJson([
-            'error_code' => 'DATABASE_CONNECTION_ERROR'
-        ]);
+            // Kiểm tra xem mã lỗi có đúng 500 và trả về cấu trúc JSON custom hay không
+            $response->assertStatus(500);
+            $response->assertJson([
+                'error_code' => 'DATABASE_CONNECTION_ERROR'
+            ]);
+        } finally {
+            config(['database.default' => 'sqlite']);
+            \Illuminate\Support\Facades\DB::purge('mysql');
+            \Illuminate\Support\Facades\DB::purge('sqlite');
+        }
     }
 }

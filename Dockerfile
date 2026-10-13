@@ -31,9 +31,12 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 # Copy file cấu hình Nginx vào hệ thống
 COPY nginx.conf /etc/nginx/sites-available/default
 
+# Đảm bảo PHP-FPM nhận toàn bộ biến môi trường từ Render
+RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/www.conf
+
 # Phân quyền chạy cho file script khởi động
 RUN chmod +x /var/www/docker-entrypoint.sh
 
-EXPOSE 80
+EXPOSE 80 10000
 
 ENTRYPOINT ["/var/www/docker-entrypoint.sh"]

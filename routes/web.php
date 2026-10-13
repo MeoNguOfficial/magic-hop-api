@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 | Đối với dự án Game API, chúng ta chỉ dùng để check trạng thái Server.
 */
 
-Route::get('/', function () {
+$healthHandler = function () {
     $dbConnected = false;
     try {
         \Illuminate\Support\Facades\DB::connection()->getPdo();
@@ -28,4 +28,8 @@ Route::get('/', function () {
         'timezone'        => config('app.timezone'),
         'timestamp'       => now()->toIso8601String(),
     ]);
-});
+};
+
+Route::get('/', $healthHandler)->withoutMiddleware('web');
+Route::match(['get', 'head'], '/index.php', $healthHandler)->withoutMiddleware('web');
+

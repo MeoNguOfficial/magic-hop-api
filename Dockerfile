@@ -1,4 +1,5 @@
-FROM php:8.5-fpm
+# Sử dụng PHP 8.5.12-fpm đã vá khẩn cấp 2 lỗ hổng Critical CVE-2026-109618 & CVE-2026-109619
+FROM php:8.5.12-fpm
 
 # Cài đặt các thư viện hệ thống và các PHP extension bắt buộc cho Laravel 13
 RUN apt-get update && apt-get install -y \
